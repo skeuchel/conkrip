@@ -70,6 +70,7 @@ module ISet
   ⊨ A = ∀ {w : W} → A w
 
   infixr 19 _⟶_
+  infixr 19 _⇒_
   infixr 18 _→̇_
 
   -- map at a world
@@ -86,31 +87,50 @@ module ISet
 
   -- exponential (or "Kripke function space")
   _⇒_ : ISet → ISet → ISet
-  A ⇒ B = λ w → {w' : W} → Acc w w' → A w' → B w'
+  A ⇒ B = λ w → ∀ {w' : W} → Acc w w' → A w' → B w'
 
   -- product
   _×'_ : ISet → ISet → ISet
-  A ×' B = λ w → A w × B w 
+  A ×' B = λ w → A w × B w
 
+  -- demonstrate equivalences between using a combination
+  -- of (⊨, ⟶, ◻) vs. a combination of (⊨, ⟶̇, ⇒)
+  -- to define operations in the model.
   module _ where
 
-    -- a valid map at a world (i.e., map at an arbitrary world)
+    -- a valid map (i.e., map at an arbitrary world)
     -- is a natural transformation
     ⊨⟶≅→̇ : ⊨ (A ⟶ B) ≡ (A →̇ B)
     ⊨⟶≅→̇ = refl
 
-    -- a boxed map at a world (i.e., map at all future worlds)
+    -- a boxed map (i.e., map at all future worlds)
     -- is an exponential
     ◻⟶≅⇒ : ◻ (A ⟶ B) ≡ (A ⇒ B)
     ◻⟶≅⇒ = refl
 
+    --
     -- axiom T can be presented in two equivalent ways
+    --
+    
     -- 1. as a valid map 
-    T : ⊨ (◻ A ⟶ A)
-    T f = f refl-Acc
+    axT : ⊨ (◻ A ⟶ A)
+    axT f = f refl-Acc
+    
     -- 2. as a natural transformation
-    T' : ◻ A →̇ A
-    T' = T
+    axT' : ◻ A →̇ A
+    axT' = axT
+
+    --
+    -- a "higher-order" axiom T can be presented in two equivalent ways
+    --
+    
+    -- 1. as a valid map
+    hoAxT : ⊨ (◻ (◻ A ⟶ A))
+    hoAxT wRw' g = g refl-Acc
+
+    -- as a valid exponential
+    hoAxT' : ⊨ (◻ A ⇒ A)
+    hoAxT' = hoAxT
 
   --
   -- ⊨ is functorial (from ISet to Set)
@@ -124,7 +144,11 @@ module ISet
 
   ⊨-map-pres-∘ : (f : A →̇ B) (g : B →̇ C) → ⊨-map {B} g ∘ ⊨-map f ≡ ⊨-map (g ∘ f) 
   ⊨-map-pres-∘ _ _ = refl
-    
+
+  --
+  -- domain specific families
+  --
+  
   -- indexed set of values
   Valᵢ : Ty → ISet
   Valᵢ a w = Val (wCtx w) a
@@ -141,10 +165,12 @@ module ISet
   Sp' : ISet → ISet
   Sp' A = (A ⇒ Formᵢ) ⇒ Formᵢ
 
-  -- obs. Sp' A is merely a special case of exponentials
-  -- while Sp A is merely a specifal case of maps
-  -- so we may study exponentials vs maps instead of Sp' A vs. Sp A
+  -- investigates the relationship between the types Sp and Sp'
   module _ where
+
+    -- since `Sp' A` is merely a special case of exponentials
+    -- and `Sp A` is merely a special case of maps by defn.,
+    -- we may study exponentials vs maps instead of `Sp' A` vs. `Sp A`
 
     -- exponentials yield maps at (respective) worlds 
     ⇒-to-⟶ : (A ⇒ B) →̇ (A ⟶ B)
@@ -154,7 +180,7 @@ module ISet
     fromExp : ⊨ (A ⇒ B) → ⊨ (A ⟶ B)
     fromExp = ⊨-map ⇒-to-⟶
 
-    -- a valid map yields exponentials
+    -- a valid map yields a valid exponential
     toExp : ⊨ (A ⟶ B) → ⊨ (A ⇒ B)
     toExp p {w} {w'} wRw' f = p {w'} f
 
@@ -179,9 +205,12 @@ module ISet
 
   -- presheaves as a submodel of families of sets
   module Psh
+    -- require proofs of monotonicity for domain-specific families
+    (monVal  : {a : Ty} {w w' : W} → Acc w w' → Val (wCtx w) a → Val (wCtx w') a)
     (monForm : {w w' : W} → Acc w w' → Form (wCtx w) → Form (wCtx w'))
     where
-  
+
+    -- a "raw" presheaf (i.e., without the laws)
     Psh : Set₁
     Psh = Σ ISet λ A → ∀ {w w' : W} → Acc w w' → A w → A w'   
 
@@ -189,24 +218,43 @@ module ISet
     [_]ᵢ : Psh → ISet
     [_]ᵢ = proj₁
 
-    pmon : (P : Psh) → ∀ {w w' : W} → Acc w w' → [ P ]ᵢ w → [ P ]ᵢ w' 
-    pmon = proj₂
-  
-    Formₚ : Psh
-    Formₚ = Formᵢ , monForm
+    -- extract the "monotonicity" proof
+    mon : (P : Psh) → ∀ {w w' : W} → Acc w w' → [ P ]ᵢ w → [ P ]ᵢ w' 
+    mon = proj₂
 
-    -- define things given two presheafs X and Y
+    --
+    -- domain specific presheaves
+    --
+  
+    --  presheah of values
+    Valₚ : Ty → Psh
+    Valₚ a = (Valᵢ a) , monVal
+
+    -- presheaf of deepply-embedded propositions 
+    Formₚ : Psh
+    Formₚ = Formᵢ , monForm  
+
+    --
+    -- Exponentials and the Sp' monad
+    --
+    
+    -- presheaf exponentials, functoriality and strength of Sp'
+    -- (this module asks for two extra arguments for every function in it) 
     module _ (Xₚ Yₚ : Psh) where
+    
+      -- local definitions to reduce clutter
       private
         X     = [ Xₚ ]ᵢ
-        monX  = pmon Xₚ
+        monX  = mon Xₚ
         
         Y    = [ Yₚ ]ᵢ
-        monY = pmon Yₚ
+        monY = mon Yₚ
 
+      -- monotonicity for exponentials
       mon⇒ : ∀ {w w' : W} → Acc w w' → (X ⇒ Y) w → (X ⇒ Y) w'
       mon⇒ wRw' f = λ w'Rw'' → f (trans-Acc wRw' w'Rw'')
 
+      -- presheaf exponential
       _⇒ₚ_ : Psh
       _⇒ₚ_ = X ⇒ Y , mon⇒ 
 
@@ -217,11 +265,18 @@ module ISet
       -- strength of the functor Sp'
       strengthSp' : (X ×' Sp' Y) →̇ Sp' (X ×' Y)
       strengthSp' (x , f) wRw' g = f wRw' (λ w'Rw'' y → g w'Rw'' (monX (trans-Acc wRw' w'Rw'') x , y))
-      
+
+    -- (explicitly) define the functorial action of Sp'
+    Sp'-functorial : Psh → Psh
+    Sp'-functorial Aₚ@(Aᵢ , monA) = (Sp' Aᵢ) , mon⇒ (Aₚ ⇒ₚ Formₚ) Formₚ
+
+    -- Sp' defines a monad on presheaves
     module _ (Xₚ : Psh) where
+    
+      -- local definitions to reduce clutter
       private
         X     = [ Xₚ ]ᵢ
-        monX  = pmon Xₚ
+        monX  = mon Xₚ
 
       -- Sp' has a return
       returnSp' : X →̇ Sp' X
