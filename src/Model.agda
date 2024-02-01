@@ -52,9 +52,6 @@ module ISet
   -- relation is a preorder
   (refl-Acc : {w : W} → Acc w w)
   (trans-Acc : {w w' w'' : W} → Acc w w' → Acc w' w'' → Acc w w'')
-  -- entailment relation and properties of it
-  (_⊢_ : {Γ : Ctx} → Con Γ → Con Γ → Set)
-  (refl-⊢ : {Γ : Ctx} {c : Con Γ} → c ⊢ c)
   where
 
   -- a family of sets (called TYPE in the Coq impl.)
@@ -308,7 +305,7 @@ module Core
     refl-Acc  : {w : W} → Acc w w
     trans-Acc : {w w' w'' : W} → Acc w w' → Acc w' w'' → Acc w w''
     
-  open ISet W Acc wCtx refl-Acc trans-Acc _⊢_ refl-⊢
+  open ISet W Acc wCtx refl-Acc trans-Acc
 
   𝟙 : ISet
   𝟙 _ = ⊤
