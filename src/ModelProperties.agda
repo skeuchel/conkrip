@@ -1,8 +1,13 @@
-module PresheafProperties where
+module ModelProperties where
 
-open import Function using (_∘_ ; id)
-open import Data.Product 
+open import Level using (0ℓ)
+open import Function using (_∘_) renaming (id to idℓ)
+
+open import Data.Product
+
 open import Relation.Binary.PropositionalEquality
+
+id = idℓ {0ℓ}
 
 module ISet
   -- worlds
@@ -119,8 +124,8 @@ module ISet
   ◻_ : ISet → ISet
   ◻_ = 𝒰 ∘ 𝒞
   
-  ◻ᵢ_ : (f : A →̇ᵢ B) → ◻ A →̇ᵢ ◻ B
-  ◻ᵢ_ {A} {B} = 𝒰₁ {𝒞 A} {𝒞 B} ∘ 𝒞₁
+  ◻₁_ : (f : A →̇ᵢ B) → ◻ A →̇ᵢ ◻ B
+  ◻₁_ {A} {B} = 𝒰₁ {𝒞 A} {𝒞 B} ∘ 𝒞₁
   
   ε◻ : ◻ A →̇ᵢ A
   ε◻ f = f refl-≤
@@ -129,18 +134,43 @@ module ISet
   ν◻ f wRw' w'Rw'' = f (trans-≤ wRw' w'Rw'')
 
   --
-  -- A monad ◆ on Set
+  -- A comonad ◼ on ISet
+  --
+  
+  ◼_ : ISet → ISet
+  ◼_ = Con ∘ Pi
+
+  ε◼ : ◼ A →̇ᵢ A
+  ε◼ {w = w} p = p {w}
+
+  ν◼ : ◼ A →̇ᵢ ◼ ◼ A
+  ν◼ p {u} {v} = p {v}  
+
+  --
+  -- A monad ℳ on Set
   --
 
-  ◆_ : Set → Set
-  ◆_ = Pi ∘ ◻_ ∘ Con
+  ℳ : Set → Set
+  ℳ = Pi ∘ ◻_ ∘ Con
 
-  η◆ : X → ◆ X
-  η◆ x _wRw' = x
+  ℳ₁ : (X → Y) → ℳ X → ℳ Y
+  ℳ₁ = Pi₁ ∘ ◻₁_ ∘ Con₁
+  
+  ηℳ : X → ℳ X
+  ηℳ x _wRw' = x
 
-  μ◆ : ◆ (◆ X) → ◆ X
-  μ◆ ddx wRw' = ddx wRw' wRw'
+  μℳ : ℳ (ℳ X) → ℳ X
+  μℳ ddx wRw' = ddx wRw' wRw'
 
+  μℳ-assoc : μℳ ∘ ℳ₁ μℳ ≡ μℳ ∘ μℳ {ℳ X}
+  μℳ-assoc = refl
+
+  ηℳ-unit-left : μℳ ∘ ηℳ ≡ id {ℳ X}
+  ηℳ-unit-left = refl
+
+  ηℳ-unit-right : μℳ ∘ ℳ₁ ηℳ ≡ id {ℳ X}
+  ηℳ-unit-right = refl
+  
   --
   -- Necessitation and denecessitation
   --
@@ -148,15 +178,14 @@ module ISet
   denec : Pi (◻ A) → Pi A
   denec = Pi₁ ε◻
 
-  -- what is going on here?
   nec : Pi A → Pi (◻ A)
-  nec {A} va {w} {w'} wRw' = η◆ {X = A w'} va wRw'
+  nec = Pi₁ (◻₁ ε◼) ∘ ηℳ
 
-  -- TODO: demystify the ◆ monad and derive this
-  -- equality from properties of denec and nec
-  denec∘nec-is-id : denec ∘ nec ≡ id {_} {Pi A}
+  -- TODO: derive this equality from
+  -- properties of nec and denec
+  denec∘nec-is-id : denec ∘ nec ≡ id {Pi A}
   denec∘nec-is-id = refl
-
+ 
   --
   -- Corollaries
   --
@@ -164,13 +193,13 @@ module ISet
   _⇒ₚ_ : Psh → Psh → Psh
   P ⇒ₚ Q = (◻ (𝒰 P ⇒ᵢ 𝒰 Q)) , λ wRw' f w'Rw'' pAtw'' → f (trans-≤ wRw' w'Rw'') pAtw''
   
-  fromExp : Pi (𝒰 (P ⇒ₚ Q)) → Pi (𝒰 P ⇒ᵢ 𝒰 Q)
-  fromExp = denec
+  from⇒ₚ : Pi (𝒰 (P ⇒ₚ Q)) → Pi (𝒰 P ⇒ᵢ 𝒰 Q)
+  from⇒ₚ = denec
   
-  toExp : Pi (𝒰 P ⇒ᵢ 𝒰 Q) → Pi (𝒰 (P ⇒ₚ Q))
-  toExp = nec
+  to⇒ₚ : Pi (𝒰 P ⇒ᵢ 𝒰 Q) → Pi (𝒰 (P ⇒ₚ Q))
+  to⇒ₚ = nec
 
-  _ : fromExp {P} {Q} ∘ toExp {P} {Q} ≡ id
+  _ : from⇒ₚ {P} {Q} ∘ to⇒ₚ {P} {Q} ≡ id
   _ = denec∘nec-is-id
 
 
